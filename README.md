@@ -126,8 +126,8 @@ update is a matter of when, not whether.
 Upload and attach are two steps:
 
 ```sh
-id=$(curl -sS -F file=@papoila.jpg http://localhost:8009/photos | jq -r .id)
-curl -sS -X POST http://localhost:8009/places/fonte-da-pipa/entries \
+id=$(curl -sS -F file=@papoila.jpg http://localhost:8010/photos | jq -r .id)
+curl -sS -X POST http://localhost:8010/places/fonte-da-pipa/entries \
   -H 'Content-Type: application/json' \
   -d "{\"date\":\"2026-04-12\",\"species\":[\"papoila-das-searas\"],\"photos\":[\"$id\"]}"
 ```

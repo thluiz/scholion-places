@@ -65,7 +65,7 @@ export function loadConfig(): Config {
   }
 
   return {
-    port: num("PORT", 8009),
+    port: num("PORT", 8010),
     host: process.env.HOST || "127.0.0.1",
 
     vaultDir,
