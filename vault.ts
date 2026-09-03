@@ -319,22 +319,32 @@ export class Vault {
     if (!this.autoPush || this.pushTimer) return;
     this.pushTimer = setTimeout(() => {
       this.pushTimer = null;
-      void this.queue.run(() => this.syncNow()).catch(() => undefined);
+      void this.sync().catch(() => undefined);
     }, this.pushDelayMs);
     // Do not hold the process open just to push.
     this.pushTimer.unref?.();
   }
 
   /**
-   * Reconcile with the remote and push.
+   * Reconcile with the remote and push, in the queue.
    *
-   * Runs inside the queue, like every other git operation — a rebase relocating
-   * files while a write is in flight is the failure this avoids. Since this
-   * service only ever touches its own section, the rebase has nothing to
-   * conflict with in practice.
+   * This is the only safe way in. Two `git fetch` in one repository race on
+   * `FETCH_HEAD` and fail with errors that read like repository corruption —
+   * "cannot rebase onto multiple branches" — so the raw operation below is
+   * never called directly.
    */
-  async syncNow(): Promise<void> {
-    const pull = await $`git -C ${this.root} pull --rebase --quiet`.quiet().nothrow();
+  async sync(): Promise<void> {
+    return this.queue.run(() => this.syncUnqueued());
+  }
+
+  /** The raw pull-and-push. Call {@link sync} instead. */
+  private async syncUnqueued(): Promise<void> {
+    // --autostash, because the working tree is not ours alone. Editing a record
+    // by hand is a supported way to work, and a plain `pull --rebase` refuses to
+    // run while those edits are uncommitted — which would silently strand every
+    // commit this service makes for as long as the edit sits there. Autostash
+    // sets the edit aside, rebases, and puts it back; nothing is discarded.
+    const pull = await $`git -C ${this.root} pull --rebase --autostash --quiet`.quiet().nothrow();
     if (pull.exitCode !== 0) {
       console.error(`[vault] pull --rebase failed: ${pull.stderr.toString().trim()}`);
       return; // Leave the commits local; the next write tries again.

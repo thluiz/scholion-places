@@ -247,6 +247,76 @@ describe("attachments", () => {
   });
 });
 
+describe("syncing with a remote", () => {
+  let remote: string;
+  let clone: string;
+  let pushing: Vault;
+
+  beforeEach(async () => {
+    remote = await mkdtemp(join(tmpdir(), "places-remote-"));
+    await $`git -C ${remote} init -q --bare -b main`.quiet();
+    await $`git -C ${root} remote add origin ${remote}`.quiet();
+    await $`git -C ${root} push -q -u origin main`.quiet();
+
+    clone = await mkdtemp(join(tmpdir(), "places-clone-"));
+    await $`git clone -q ${remote} ${clone}`.quiet();
+    pushing = new Vault({ root, autoPush: true, pushDelayMs: 60_000 });
+  });
+
+  afterEach(async () => {
+    await pushing.shutdown();
+    await rm(remote, { recursive: true, force: true });
+    await rm(clone, { recursive: true, force: true });
+  });
+
+  test("a commit reaches the remote", async () => {
+    await pushing.write(place(), { message: "places: novo local" });
+    await pushing.sync();
+
+    await $`git -C ${clone} pull -q`.quiet();
+    expect(await Bun.file(join(clone, "content", "places", "fonte-da-pipa", RECORD_FILE)).exists()).toBe(true);
+  });
+
+  test("a hand edit does not strand the push, and survives it", async () => {
+    await pushing.write(place(), { message: "places: novo local" });
+
+    // Somebody opens the record in an editor and does not commit. A plain
+    // `pull --rebase` refuses to run in this state, and every commit the service
+    // makes would sit unsent for as long as the edit is there.
+    const recordPath = join(pushing.bundleDir("fonte-da-pipa"), RECORD_FILE);
+    const edited = (await readFile(recordPath, "utf8")).replace(
+      '"title": "Fonte da Pipa"',
+      '"title": "Fonte da Pipa (editado à mão)"',
+    );
+    await writeFile(recordPath, edited);
+
+    await pushing.sync();
+
+    // The commit went out...
+    await $`git -C ${clone} pull -q`.quiet();
+    expect(await Bun.file(join(clone, "content", "places", "fonte-da-pipa", RECORD_FILE)).exists()).toBe(true);
+
+    // ...and the uncommitted edit is still sitting in the working tree.
+    expect(await readFile(recordPath, "utf8")).toContain("editado à mão");
+    expect((await $`git -C ${root} stash list`.quiet().text()).trim()).toBe("");
+  });
+
+  test("a commit made elsewhere is rebased under ours, not lost", async () => {
+    await writeFile(join(clone, "OUTRO.md"), "vindo de outro sitio\n");
+    await $`git -C ${clone} add -A`.quiet();
+    await $`git -C ${clone} -c user.name=o -c user.email=o@o commit -q -m "outro escritor"`.quiet();
+    await $`git -C ${clone} push -q`.quiet();
+
+    await pushing.write(place(), { message: "places: novo local" });
+    await pushing.sync();
+
+    const log = await $`git -C ${root} log --format=%s`.quiet().text();
+    expect(log).toContain("outro escritor");
+    expect(log).toContain("places: novo local");
+    expect(await Bun.file(join(root, "OUTRO.md")).exists()).toBe(true);
+  });
+});
+
 describe("SerialQueue", () => {
   test("runs tasks one at a time, in order", async () => {
     const queue = new SerialQueue();

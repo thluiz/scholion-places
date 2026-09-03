@@ -269,7 +269,7 @@ console.log(
  */
 async function catchUp(): Promise<void> {
   try {
-    if (config.autoPush) await vault.queue.run(() => vault.syncNow());
+    if (config.autoPush) await vault.sync();
     const changes = await syncIndex(index, () => vault.readAll());
     if (changes.added || changes.updated || changes.removed) {
       console.log(
