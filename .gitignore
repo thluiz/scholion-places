@@ -1,0 +1,22 @@
+# Secrets and per-deployment configuration — never committed.
+# This repository is public; keep it that way by keeping these out.
+.env
+acl.json
+
+# The working clone of the content repository. Large, and not ours to version.
+vault/
+
+# Derived state. The search index is rebuilt from the JSON records on boot,
+# so losing it costs nothing and committing it would only cause conflicts.
+*.db
+*.db-shm
+*.db-wal
+
+# Photos waiting to be attached to an entry.
+staging/
+
+# Runtime
+logs/
+node_modules/
+bun.lockb
+*.log

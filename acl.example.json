@@ -1,0 +1,59 @@
+{
+  "_comment": [
+    "Copy to acl.json (gitignored, chmod 600) and edit. The values below are examples.",
+    "",
+    "A principal is a person or a room — never a bot. Which bot is on the other",
+    "end is a deployment detail, and swapping it must not touch this file.",
+    "",
+    "apiKey: never share one between two consumers. The key is the identity, and",
+    "the audit log records the name it resolves to. Generate with:",
+    "  openssl rand -hex 24",
+    "",
+    "role: read | write | admin.",
+    "  read  — search, fetch, list labels.",
+    "  write — everything above, plus creating and correcting places, entries and",
+    "          photos. Deliberately stops short of deleting a place or renaming",
+    "          one: not because they are dangerous — git remembers — but because",
+    "          they are rare, and a rarely needed capability is better asked for",
+    "          than left lying around.",
+    "  admin — everything, including re-rendering and reindexing.",
+    "",
+    "allow / deny: adjust the role for one principal. deny wins over allow.",
+    "A denied operation is not merely refused when called: it is left out of what",
+    "GET /me reports, so a client built from that list never learns it exists.",
+    "",
+    "The operation names are the ones in acl.ts. A name that matches none of them",
+    "is warned about at boot — a typo in a deny list looks like a control and is",
+    "none."
+  ],
+
+  "principals": {
+    "thiago": {
+      "apiKey": "replace-me-with-48-hex-characters-from-openssl",
+      "role": "admin"
+    },
+
+    "thilia": {
+      "apiKey": "replace-me-too-with-another-random-value",
+      "role": "write"
+    },
+
+    "oficina": {
+      "apiKey": "replace-me-as-well-a-shared-room",
+      "role": "write"
+    },
+
+    "intake": {
+      "_comment": "Photos arrive before anyone knows where they belong, so the upload needs no more than this.",
+      "apiKey": "replace-me-with-yet-another-random-value",
+      "role": "read",
+      "allow": ["photo.upload"]
+    },
+
+    "painel": {
+      "_comment": "A read-only consumer: a dashboard, a map, a static export.",
+      "apiKey": "replace-me-read-only",
+      "role": "read"
+    }
+  }
+}

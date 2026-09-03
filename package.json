@@ -1,0 +1,10 @@
+{
+  "name": "scholion-places",
+  "version": "1.0.0",
+  "description": "Places, sightings and photos, stored as JSON and published as Markdown into a Hugo content repository.",
+  "type": "module",
+  "scripts": {
+    "start": "bun run server.ts",
+    "test": "bun test"
+  }
+}
