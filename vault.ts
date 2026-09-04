@@ -60,6 +60,16 @@ export interface WriteOptions {
   remove?: string[];
 }
 
+export interface SyncState {
+  lastSyncAt?: number;
+  /** About the last attempt only. A later success clears it. */
+  lastError?: string;
+  /** A stash entry sitting in the vault. Never normal; always somebody's work. */
+  strandedStash?: string;
+  /** How to get that work back. Survives any number of successful syncs. */
+  strandedHint?: string;
+}
+
 export interface VaultOptions {
   /** The clone of the content repository. */
   root: string;
@@ -108,6 +118,7 @@ export class Vault {
   private readonly autoPush: boolean;
   private readonly pushDelayMs: number;
   private pushTimer: ReturnType<typeof setTimeout> | null = null;
+  private syncState: SyncState = {};
 
   constructor(options: VaultOptions) {
     this.root = options.root;
@@ -337,23 +348,145 @@ export class Vault {
     return this.queue.run(() => this.syncUnqueued());
   }
 
-  /** The raw pull-and-push. Call {@link sync} instead. */
+  private async run(...args: string[]): Promise<{ ok: boolean; out: string }> {
+    const result = await $`git -C ${this.root} ${args}`.quiet().nothrow();
+    return {
+      ok: result.exitCode === 0,
+      out: `${result.stdout.toString()}${result.stderr.toString()}`.trim(),
+    };
+  }
+
+  private async isDirty(): Promise<boolean> {
+    return (await this.run("status", "--porcelain")).out !== "";
+  }
+
+  private async unmergedPaths(): Promise<string[]> {
+    const { out } = await this.run("diff", "--name-only", "--diff-filter=U");
+    return out ? out.split("\n") : [];
+  }
+
+  private async stashes(): Promise<string[]> {
+    const { out } = await this.run("stash", "list");
+    return out ? out.split("\n") : [];
+  }
+
+  /**
+   * The raw pull-and-push. Call {@link sync} instead.
+   *
+   * The shape of this is dictated by one nasty fact, verified rather than
+   * assumed: `git pull --rebase --autostash` **exits 0 even when reapplying the
+   * autostash fails**. On that path git keeps the stash, leaves conflict markers
+   * in the working tree, and says nothing an exit code would carry. A record
+   * full of `<<<<<<<` is not valid JSON, so the place would quietly vanish from
+   * the index while the service reported success.
+   *
+   * So: rebase only when there is something to rebase onto, and when a rebase
+   * does happen over somebody's uncommitted edit, check afterwards instead of
+   * trusting the exit code.
+   */
   private async syncUnqueued(): Promise<void> {
-    // --autostash, because the working tree is not ours alone. Editing a record
-    // by hand is a supported way to work, and a plain `pull --rebase` refuses to
-    // run while those edits are uncommitted — which would silently strand every
-    // commit this service makes for as long as the edit sits there. Autostash
-    // sets the edit aside, rebases, and puts it back; nothing is discarded.
-    const pull = await $`git -C ${this.root} pull --rebase --autostash --quiet`.quiet().nothrow();
-    if (pull.exitCode !== 0) {
-      console.error(`[vault] pull --rebase failed: ${pull.stderr.toString().trim()}`);
-      return; // Leave the commits local; the next write tries again.
+    const fetched = await this.run("fetch", "--quiet");
+    if (!fetched.ok) {
+      this.syncState = { ...this.syncState, lastError: `fetch failed: ${fetched.out}` };
+      console.error(`[vault] fetch failed: ${fetched.out}`);
+      return;
     }
 
-    const push = await $`git -C ${this.root} push --quiet`.quiet().nothrow();
-    if (push.exitCode !== 0) {
-      console.error(`[vault] push failed: ${push.stderr.toString().trim()}`);
+    const upstream = await this.run("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}");
+    if (!upstream.ok) {
+      this.syncState = { ...this.syncState, lastError: "no upstream branch configured" };
+      return;
     }
+
+    // Is the remote already behind us? Then there is nothing to reconcile, and
+    // rebasing would be a risk taken for no reason. This is the ordinary case,
+    // and skipping the rebase here is what keeps a hand edit out of harm's way
+    // almost always.
+    const upToDate = await this.run("merge-base", "--is-ancestor", upstream.out, "HEAD");
+
+    if (!upToDate.ok) {
+      const dirty = await this.isDirty();
+      const stashesBefore = (await this.stashes()).length;
+
+      // --autostash only when we must: without it, `pull --rebase` refuses to
+      // run at all against a dirty tree, which would silently strand every
+      // commit this service has made for as long as the edit sits there.
+      const flags = dirty
+        ? ["pull", "--rebase", "--autostash", "--quiet"]
+        : ["pull", "--rebase", "--quiet"];
+      const pull = await this.run(...flags);
+
+      if (!pull.ok) {
+        // A rebase that stops on a conflict leaves the repository mid-flight,
+        // and every later git command in it fails until somebody finishes or
+        // abandons it. Abandoning is the only safe automatic choice: our commits
+        // stay, the remote is untouched, and the next attempt starts clean.
+        const aborted = await this.run("rebase", "--abort");
+        this.syncState = {
+          ...this.syncState,
+          lastError: `pull failed${aborted.ok ? " (rebase aborted)" : ""}: ${pull.out}`,
+        };
+        console.error(`[vault] pull --rebase failed: ${pull.out}`);
+        return; // Leave the commits local; the next attempt tries again.
+      }
+
+      const unmerged = await this.unmergedPaths();
+      if (unmerged.length) {
+        // The autostash could not be reapplied. Everything the person wrote is
+        // in the stash — that is git's own promise — so the safe move is to put
+        // the working tree back to the rebased commit and shout about the stash,
+        // rather than leave conflict markers inside records.
+        await this.run("reset", "--hard", "--quiet", "HEAD");
+        const stash = (await this.stashes())[0] ?? "stash@{0}";
+        const hint =
+          `an uncommitted edit to ${unmerged.join(", ")} collided with a change from the remote. ` +
+          `It was NOT lost — recover it with: git -C ${this.root} stash pop`;
+        this.syncState = { ...this.syncState, strandedStash: stash, strandedHint: hint };
+        console.error(`[vault] ${hint}`);
+      } else if ((await this.stashes()).length > stashesBefore) {
+        const stash = (await this.stashes())[0] ?? "stash@{0}";
+        this.syncState = {
+          ...this.syncState,
+          strandedStash: stash,
+          strandedHint: `an autostash was left behind; recover it with: git -C ${this.root} stash pop`,
+        };
+        console.error(`[vault] ${this.syncState.strandedHint}`);
+      }
+    }
+
+    const push = await this.run("push", "--quiet");
+    if (!push.ok) {
+      this.syncState = { ...this.syncState, lastError: `push failed: ${push.out}` };
+      console.error(`[vault] push failed: ${push.out}`);
+      return;
+    }
+
+    this.syncState = { ...this.syncState, lastSyncAt: Date.now(), lastError: undefined };
+  }
+
+  /**
+   * Anything left in the stash, at any time.
+   *
+   * A stash entry in this repository is never normal: the service does not
+   * create them deliberately, so one sitting there means somebody's edit is
+   * waiting to be recovered. Reported at boot and on every sync so it cannot be
+   * quietly forgotten.
+   */
+  async checkForStrandedWork(): Promise<string[]> {
+    const stashes = await this.stashes();
+    this.syncState = {
+      ...this.syncState,
+      strandedStash: stashes[0],
+      strandedHint: stashes.length
+        ? (this.syncState.strandedHint ??
+          `somebody's edit is waiting in the stash; recover it with: git -C ${this.root} stash pop`)
+        : undefined,
+    };
+    return stashes;
+  }
+
+  get state(): SyncState {
+    return { ...this.syncState };
   }
 
   async shutdown(): Promise<void> {

@@ -172,7 +172,17 @@ const server = Bun.serve({
     const path = url.pathname.replace(/\/+$/, "") || "/";
 
     if (request.method === "GET" && path === "/health") {
-      return json({ ok: true, service: SERVICE, version: VERSION, places: index.count() });
+      // A stash in the vault means somebody's uncommitted edit collided with the
+      // remote and is waiting to be recovered. Never normal, so `ok` goes false:
+      // the one place a person is likely to look should say something is wrong.
+      const sync = vault.state;
+      return json({
+        ok: !sync.strandedStash,
+        service: SERVICE,
+        version: VERSION,
+        places: index.count(),
+        sync,
+      });
     }
 
     let principal: Principal | null = null;
@@ -254,6 +264,13 @@ await photos.prune();
 
 const initial = await vault.readAll();
 index.rebuild(initial);
+
+for (const stash of await vault.checkForStrandedWork()) {
+  console.error(
+    `[${SERVICE}] there is work stashed in the vault — somebody's edit is waiting: ${stash}\n` +
+      `           recover it with: git -C ${config.vaultDir} stash pop`,
+  );
+}
 console.log(
   `[${SERVICE}] listening on http://${config.host}:${server.port} — ${initial.length} places, ` +
     `${acl.principals().length} principals, vault ${config.vaultDir}`,

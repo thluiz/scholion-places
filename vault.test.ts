@@ -301,6 +301,60 @@ describe("syncing with a remote", () => {
     expect((await $`git -C ${root} stash list`.quiet().text()).trim()).toBe("");
   });
 
+  test("a dirty tree is not rebased at all when the remote has not moved", async () => {
+    await pushing.write(place(), { message: "places: novo local" });
+
+    const recordPath = join(pushing.bundleDir("fonte-da-pipa"), RECORD_FILE);
+    await writeFile(recordPath, (await readFile(recordPath, "utf8")).replace("Fonte da Pipa", "Editado"));
+
+    await pushing.sync();
+
+    // No rebase happened, so the edit was never even set aside.
+    expect((await $`git -C ${root} stash list`.quiet().text()).trim()).toBe("");
+    expect(await readFile(recordPath, "utf8")).toContain("Editado");
+    expect(pushing.state.strandedStash).toBeUndefined();
+  });
+
+  test("an edit that collides with the remote is kept in the stash and reported", async () => {
+    await pushing.write(place(), { message: "places: novo local" });
+    await pushing.sync();
+
+    // Somebody else edits the same record and pushes.
+    await $`git -C ${clone} pull -q`.quiet();
+    const theirs = join(clone, "content", "places", "fonte-da-pipa", RECORD_FILE);
+    await writeFile(theirs, (await readFile(theirs, "utf8")).replace("Fonte da Pipa", "Vindo do remoto"));
+    await $`git -C ${clone} add -A`.quiet();
+    await $`git -C ${clone} -c user.name=o -c user.email=o@o commit -q -m "outro edita"`.quiet();
+    await $`git -C ${clone} push -q`.quiet();
+
+    // Meanwhile the service records something else entirely, so there is a
+    // local commit to push and therefore a rebase to do...
+    await pushing.write(place({ title: "Outro Sitio" }), { message: "places: outro sitio" });
+
+    // ...and here somebody has the first record open in an editor, uncommitted.
+    const ours = join(pushing.bundleDir("fonte-da-pipa"), RECORD_FILE);
+    await writeFile(ours, (await readFile(ours, "utf8")).replace("Fonte da Pipa", "Editado à mão"));
+
+    await pushing.sync();
+
+    // git exits 0 on this path, so the only way to know is to look afterwards.
+    expect(pushing.state.strandedStash).toContain("stash");
+    expect(pushing.state.strandedHint).toContain("stash pop");
+    // The push still went out, and a success must not erase the warning.
+    expect(pushing.state.lastError).toBeUndefined();
+    expect(pushing.state.lastSyncAt).toBeGreaterThan(0);
+
+    // The working tree is left valid — no conflict markers inside a record,
+    // which would make it unparseable and drop the place out of the index.
+    const onDisk = await readFile(ours, "utf8");
+    expect(onDisk).not.toContain("<<<<<<<");
+    expect(() => JSON.parse(onDisk)).not.toThrow();
+
+    // And the edit is recoverable, in full.
+    const stashed = await $`git -C ${root} stash show -p stash@{0}`.quiet().text();
+    expect(stashed).toContain("Editado à mão");
+  });
+
   test("a commit made elsewhere is rebased under ours, not lost", async () => {
     await writeFile(join(clone, "OUTRO.md"), "vindo de outro sitio\n");
     await $`git -C ${clone} add -A`.quiet();
