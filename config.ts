@@ -36,7 +36,25 @@ export interface Config {
   photoQuality: number;
   photoMaxBytes: number;
   ffmpegPath: string;
+
+  /**
+   * Optional: ask a gateway what the photograph shows, and hand the answer back
+   * with the upload. Off by default — it points at a service this repository
+   * knows nothing about, and a deployment without one must still work.
+   */
+  describe: {
+    enabled: boolean;
+    url: string;
+    model: string;
+    prompt: string;
+    timeoutMs: number;
+    maxChars: number;
+  };
 }
+
+const DESCRIBE_PROMPT =
+  "Descreve esta fotografia numa frase curta, em português de Portugal, até 20 palavras. " +
+  "Se houver flores, nomeia-as se conseguires; se não tiveres a certeza, descreve-as sem inventar o nome.";
 
 function num(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -93,5 +111,14 @@ export function loadConfig(): Config {
     photoQuality: num("PHOTO_QUALITY", 3),
     photoMaxBytes: num("PHOTO_MAX_BYTES", 12 * 1024 * 1024),
     ffmpegPath: process.env.FFMPEG_PATH || "ffmpeg",
+
+    describe: {
+      enabled: bool("DESCRIBE_ENABLED", false),
+      url: process.env.DESCRIBE_URL || "",
+      model: process.env.DESCRIBE_MODEL || "",
+      prompt: process.env.DESCRIBE_PROMPT || DESCRIBE_PROMPT,
+      timeoutMs: num("DESCRIBE_TIMEOUT_MS", 15_000),
+      maxChars: num("DESCRIBE_MAX_CHARS", 280),
+    },
   };
 }

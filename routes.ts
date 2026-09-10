@@ -17,6 +17,7 @@
 
 import type { Operation, Principal } from "./acl";
 import type { Config } from "./config";
+import { describeImage } from "./describe";
 import { NEIGHBOUR_RADIUS_M, distanceMeters, slugify } from "./geo";
 import {
   ValidationError,
@@ -464,13 +465,30 @@ export const ROUTES: Route[] = [
       const data = await readUpload(request.raw, ctx.config.photoMaxBytes);
       const staged = await ctx.photos.stage(data);
 
+      const asText = (request.headers.get("accept") ?? "").includes("text/plain");
+      const wantsDescription = asText || request.query.get("describe") === "true";
+
+      // Described from the re-encoded copy, not the original: it is smaller,
+      // so the round trip is quicker and costs less, and it is the image that
+      // will actually be published.
+      const description = wantsDescription
+        ? await describeImage(
+            new Uint8Array(await Bun.file(staged.path).arrayBuffer()),
+            ctx.config.describe,
+          )
+        : null;
+
       // A caller that asks for text gets one short line back. That is what a
-      // media pipeline pastes into a message for a model to read, and 500
-      // characters is all it is given.
-      if ((request.headers.get("accept") ?? "").includes("text/plain")) {
+      // media pipeline pastes into a message for a model to read, and a few
+      // hundred characters is all it is given — so the id comes first, where
+      // truncation cannot reach it.
+      if (asText) {
+        const tail = description
+          ? `${description} — passe este id ao registar a visita.`
+          : "recebida, por guardar. Passe este id ao registar a visita.";
         return {
           status: 201,
-          body: `foto:${staged.id} — recebida, por guardar. Passe este id ao criar a entrada.\n`,
+          body: `foto:${staged.id} — ${tail}\n`,
           headers: { "Content-Type": "text/plain; charset=utf-8" },
           audit: { photoId: staged.id },
         };
@@ -478,7 +496,13 @@ export const ROUTES: Route[] = [
 
       return {
         status: 201,
-        body: { id: staged.id, bytes: staged.bytes, width: staged.width, height: staged.height },
+        body: {
+          id: staged.id,
+          bytes: staged.bytes,
+          width: staged.width,
+          height: staged.height,
+          ...(description ? { description } : {}),
+        },
         audit: { photoId: staged.id },
       };
     },
