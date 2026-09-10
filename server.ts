@@ -26,6 +26,14 @@ import {
 import { RateLimitError, WriteBudget } from "./budget";
 import { loadConfig } from "./config";
 import { Logger, type AuditOutcome } from "./logger";
+import {
+  InvalidArgumentError,
+  MCP_TOOLS,
+  callTool,
+  handleMcpGet,
+  handleMcpOptions,
+  handleMcpPost,
+} from "./mcp";
 import { ValidationError } from "./model";
 import { FfmpegEncoder, PhotoNotFoundError, PhotoStore } from "./photos";
 import { MethodNotAllowedError, matchRoute, type ApiContext, type ApiResult } from "./routes";
@@ -110,6 +118,7 @@ function statusFor(error: unknown): number {
     error instanceof NotFoundError ||
     error instanceof PhotoNotFoundError ||
     error instanceof ConflictError ||
+    error instanceof InvalidArgumentError ||
     error instanceof MethodNotAllowedError
   ) {
     return error.status;
@@ -185,12 +194,59 @@ const server = Bun.serve({
       });
     }
 
+    if (request.method === "OPTIONS" && path === "/mcp") return handleMcpOptions();
+
     let principal: Principal | null = null;
     let operation = "unknown";
     let audit: ApiResult["audit"] = {};
 
     try {
       principal = (await currentAcl()).authenticate(request.headers.get("x-api-key"));
+
+      // MCP is a second way in to the same routes, so it gets the same audit
+      // trail and the same write budget. What it must not get is a second copy
+      // of the rules — see mcp.ts.
+      if (path === "/mcp") {
+        if (request.method === "GET") return handleMcpGet();
+        if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+        const caller = principal;
+        return await handleMcpPost(request, {
+          principal: caller,
+          ctx: context,
+          async execute(name, args) {
+            const startedTool = Date.now();
+            const tool = MCP_TOOLS.find((candidate) => candidate.name === name);
+            if (tool && MUTATING.has(tool.operation)) budget.consume(caller.name);
+
+            try {
+              const result = await callTool(context, caller, name, args);
+              void logger.write({
+                principal: caller.name,
+                operation: tool?.operation ?? name,
+                outcome: "ok",
+                method: "MCP",
+                path: `tools/call/${name}`,
+                slug: typeof args.slug === "string" ? args.slug : undefined,
+                durationMs: Date.now() - startedTool,
+              });
+              return result;
+            } catch (error) {
+              void logger.write({
+                principal: caller.name,
+                operation: tool?.operation ?? name,
+                outcome: outcomeFor(statusFor(error)),
+                method: "MCP",
+                path: `tools/call/${name}`,
+                slug: typeof args.slug === "string" ? args.slug : undefined,
+                message: describe(error),
+                durationMs: Date.now() - startedTool,
+              });
+              throw error;
+            }
+          },
+        });
+      }
 
       // What this caller may do, which is not the same as what the API can do.
       // A denied operation is absent from this list, so a client built from it
