@@ -15,6 +15,8 @@
 //      two writers — a client and a person with a text editor — so a lost
 //      update is a matter of when, not whether.
 
+import { join } from "node:path";
+
 import type { Operation, Principal } from "./acl";
 import type { Config } from "./config";
 import { describeImage } from "./describe";
@@ -113,6 +115,52 @@ function takenFilenames(place: Place): string[] {
 }
 
 /**
+ * What a photo of this visit should be called after the date, minus extension.
+ *
+ * Species first, because that is what the picture is of. A meal falls back to
+ * the dish. A visit with neither still gets a dated name rather than nothing.
+ */
+function photoLabels(entry: Entry): string[] {
+  if (entry.species?.length) return entry.species;
+  const dish = entry.dish ? slugify(entry.dish, 40) : "";
+  return dish ? [dish] : [];
+}
+
+/**
+ * Rename an entry's photos to match what the entry now says.
+ *
+ * Photos are usually attached before the details are right: the pictures arrive,
+ * then the date gets corrected and the species named. Leaving the filenames
+ * where they landed means a bundle whose files claim a date the visit does not
+ * have — which defeats the point of naming them after the visit at all, since
+ * the name is what identifies a photograph pulled out of the repository alone.
+ *
+ * Cheap in git: the bytes do not change, so a rename stores no new blob.
+ */
+function renamePhotos(place: Place, entry: Entry, bundleDir: string): { name: string; from: string }[] {
+  const labels = photoLabels(entry);
+  const others = place.entries
+    .filter((candidate) => candidate.id !== entry.id)
+    .flatMap((candidate) => candidate.photos.map((photo) => photo.file));
+
+  const moves: { name: string; from: string }[] = [];
+  const taken = [...others];
+
+  for (const photo of entry.photos) {
+    const wanted = photoFilename(entry.date, labels, taken);
+    if (wanted === photo.file) {
+      taken.push(photo.file);
+      continue;
+    }
+    moves.push({ name: wanted, from: join(bundleDir, photo.file) });
+    photo.file = wanted;
+    taken.push(wanted);
+  }
+
+  return moves;
+}
+
+/**
  * Read, change, write, reindex.
  *
  * The single path through which every mutation passes. Anything that skips it
@@ -172,7 +220,7 @@ async function claimPhotos(
   for (const id of ids) {
     if (typeof id !== "string") throw new ValidationError("photos must be a list of staged photo ids");
     const source = await ctx.photos.claim(id.replace(/^foto:/, ""));
-    const name = photoFilename(entry.date, entry.species ?? [], taken);
+    const name = photoFilename(entry.date, photoLabels(entry), taken);
 
     taken.push(name);
     attach.push({ name, from: source });
@@ -424,8 +472,11 @@ export const ROUTES: Route[] = [
       const stored = await mutate(ctx, slug, request, `places: corrige entrada ${id} em ${slug}`, async (place) => {
         const entry = findEntry(place, id);
         Object.assign(entry, entryFields(request.body, request.principal, entry));
+        // The photos were named when they arrived, which is usually before the
+        // date and the species were right.
+        const attach = renamePhotos(place, entry, ctx.vault.bundleDir(slug));
         updated = entry;
-        return { place };
+        return { place, attach };
       });
 
       return {

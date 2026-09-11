@@ -339,6 +339,53 @@ describe("photos", () => {
     expect(await Bun.file(join(ctx.vault.bundleDir("fonte-da-pipa"), photo.file)).exists()).toBe(false);
   });
 
+  test("correcting the visit renames its photos to match", async () => {
+    // Photos are attached the moment they arrive, which is before the details
+    // are right: the date still says today and nobody has named the flower yet.
+    const created = await call("POST", "/places/fonte-da-pipa/entries", {
+      body: { photos: [await uploadPhoto(), await uploadPhoto()] },
+    });
+    const entry = (created.body as any).entry;
+    const hoje = new Date().toLocaleDateString("en-CA");
+    expect(entry.photos.map((p: any) => p.file)).toEqual([`${hoje}-foto.jpg`, `${hoje}-foto-2.jpg`]);
+
+    const fixed = await call("PATCH", `/places/fonte-da-pipa/entries/${entry.id}`, {
+      body: { date: "2026-08-31", species: ["hortênsia"] },
+    });
+
+    const files = (fixed.body as any).entry.photos.map((p: any) => p.file);
+    expect(files).toEqual(["2026-08-31-hortensia.jpg", "2026-08-31-hortensia-2.jpg"]);
+
+    // The bytes moved with the names, and nothing stayed behind.
+    for (const file of files) {
+      expect(await Bun.file(join(ctx.vault.bundleDir("fonte-da-pipa"), file)).exists()).toBe(true);
+    }
+    expect(await Bun.file(join(ctx.vault.bundleDir("fonte-da-pipa"), `${hoje}-foto.jpg`)).exists()).toBe(false);
+
+    const tracked = await $`git -C ${root} ls-files content/places/fonte-da-pipa`.quiet().text();
+    expect(tracked).toContain("2026-08-31-hortensia.jpg");
+    expect(tracked).not.toContain(`${hoje}-foto.jpg`);
+  });
+
+  test("a meal names its photos after the dish when no species is given", async () => {
+    const created = await call("POST", "/places/fonte-da-pipa/entries", {
+      body: { type: "visit", date: "2026-05-03", dish: "Arroz de cabidela", photos: [await uploadPhoto()] },
+    });
+    expect((created.body as any).entry.photos[0].file).toBe("2026-05-03-arroz-de-cabidela.jpg");
+  });
+
+  test("a correction that changes nothing leaves the filenames alone", async () => {
+    const created = await call("POST", "/places/fonte-da-pipa/entries", {
+      body: { date: "2026-04-12", species: ["cardo"], photos: [await uploadPhoto()] },
+    });
+    const before = (created.body as any).entry.photos[0].file;
+
+    const after = await call("PATCH", `/places/fonte-da-pipa/entries/${(created.body as any).entry.id}`, {
+      body: { note: "só a nota mudou" },
+    });
+    expect((after.body as any).entry.photos[0].file).toBe(before);
+  });
+
   test("deleting a visit takes its photos with it", async () => {
     const created = await call("POST", "/places/fonte-da-pipa/entries", {
       body: { species: ["cardo"], photos: [await uploadPhoto()] },
