@@ -20,6 +20,8 @@ import { matchRoute, type ApiContext } from "./routes";
 import { PlaceIndex } from "./search";
 import { ConflictError, NotFoundError, Vault } from "./vault";
 
+const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 0, 0]);
+
 class FakeEncoder implements PhotoEncoder {
   async encode(input: string, output: string): Promise<EncodeResult> {
     await Bun.write(output, Bun.file(input));
@@ -116,6 +118,7 @@ describe("what each principal is shown", () => {
     expect(names).toContain("place_create");
     expect(names).toContain("place_add_entry");
     expect(names).toContain("place_update_entry");
+    expect(names).toContain("place_add_photos");
   });
 
   test("a denied operation is not listed, and is refused if named anyway", async () => {
@@ -202,6 +205,40 @@ describe("calling through", () => {
 
   test("a place that is not there", async () => {
     await expect(callTool(ctx, admin, "place_get", { slug: "nao-existe" })).rejects.toThrow(NotFoundError);
+  });
+
+  test("photos that arrive later join the visit instead of making a second one", async () => {
+    // Pictures often follow the words: one message describing the outing, then
+    // the photographs one at a time. Without a way to attach them afterwards
+    // the only option is a duplicate entry, which splits one outing in two.
+    await create();
+    const added = (await callTool(ctx, admin, "place_add_entry", {
+      slug: "fonte-da-pipa",
+      date: "2026-04-12",
+      species: ["cardo"],
+    })) as { entry: { id: string } };
+
+    const primeira = (await ctx.photos.stage(JPEG)).id;
+    const segunda = (await ctx.photos.stage(JPEG)).id;
+
+    await callTool(ctx, admin, "place_add_photos", {
+      slug: "fonte-da-pipa",
+      entry_id: added.entry.id,
+      photos: [`foto:${primeira}`],
+    });
+    const depois = (await callTool(ctx, admin, "place_add_photos", {
+      slug: "fonte-da-pipa",
+      entry_id: added.entry.id,
+      photos: [segunda],
+    })) as { entry: { photos: { file: string }[] } };
+
+    // Uma visita, duas fotos, nomes distintos.
+    const { place } = await ctx.vault.read("fonte-da-pipa");
+    expect(place.entries).toHaveLength(1);
+    expect(depois.entry.photos.map((p) => p.file)).toEqual([
+      "2026-04-12-cardo.jpg",
+      "2026-04-12-cardo-2.jpg",
+    ]);
   });
 
   test("a photo id the model invented is refused rather than silently ignored", async () => {

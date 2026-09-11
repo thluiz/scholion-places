@@ -252,6 +252,29 @@ export const MCP_TOOLS: McpTool[] = [
   },
 
   {
+    name: "place_add_photos",
+    description:
+      "Attach photos to a visit already recorded. Use this when the pictures arrive after the visit " +
+      "was written down — a second message, or a few sent one at a time. Do not record the same visit " +
+      "twice to carry a late photo: one outing is one entry, however many messages it took to describe.",
+    operation: "photo.attach",
+    inputSchema: {
+      type: "object",
+      properties: {
+        slug: { type: "string", description: "Which place." },
+        entry_id: { type: "string", description: "The id of the visit, as shown by place_get." },
+        photos: PHOTOS_ARG,
+      },
+      required: ["slug", "entry_id", "photos"],
+    },
+    request: (args) => ({
+      method: "POST",
+      path: `/places/${slugOf(args)}/entries/${encodeURIComponent(String(args.entry_id ?? ""))}/photos`,
+      body: { photos: args.photos },
+    }),
+  },
+
+  {
     name: "places_list_species",
     description: "Every flower recorded so far, with how many places each has been seen at.",
     operation: "places.labels",
