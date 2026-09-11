@@ -58,7 +58,7 @@ lastmod: "2026-08-31T09:40:00+01:00"
 category: place
 summary: "Curva da estrada acima da fonte; campo aberto virado a sul."
 tags: ["serra-da-estrela"]
-kind: ["flores"]
+kinds: ["flores"]
 species: ["cardo", "malmequer-bravo", "papoila-das-searas"]
 coords: [40.32611, -7.61389]
 address: "N339, junto ao marco 12"
