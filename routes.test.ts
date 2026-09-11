@@ -21,6 +21,7 @@ import { ValidationError } from "./model";
 import { PhotoStore, type EncodeResult, type PhotoEncoder } from "./photos";
 import { MethodNotAllowedError, matchRoute, type ApiContext, type ApiResult } from "./routes";
 import { PlaceIndex } from "./search";
+import { localDate } from "./time";
 import { ConflictError, NotFoundError, RECORD_FILE, RENDERED_FILE, Vault } from "./vault";
 
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 0, 0]);
@@ -438,6 +439,24 @@ describe("searching", () => {
 
   test("a month outside the calendar is refused", async () => {
     await expect(call("GET", "/places?month=13")).rejects.toThrow(ValidationError);
+  });
+
+  test("by when the record was created or changed, not when it was visited", async () => {
+    const today = localDate();
+    const tomorrow = localDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
+
+    const found = await call("GET", `/places?updated_since=${today}`);
+    expect((found.body as any).results.map((hit: any) => hit.slug).sort()).toEqual([
+      "fonte-da-pipa",
+      "tasca-do-manel",
+    ]);
+
+    const none = await call("GET", `/places?updated_since=${tomorrow}`);
+    expect((none.body as any).total).toBe(0);
+  });
+
+  test("an invalid updated_since is refused", async () => {
+    await expect(call("GET", "/places?updated_since=not-a-date")).rejects.toThrow(ValidationError);
   });
 });
 

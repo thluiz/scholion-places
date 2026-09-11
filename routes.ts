@@ -255,6 +255,7 @@ function parseSearch(query: URLSearchParams): SearchQuery {
     radiusKm: query.get("radius_km") ? Number(query.get("radius_km")) : undefined,
     since: query.get("since") ? assertDate(query.get("since"), "since") : undefined,
     until: query.get("until") ? assertDate(query.get("until"), "until") : undefined,
+    updatedSince: query.get("updated_since") ? assertDate(query.get("updated_since"), "updated_since") : undefined,
     limit: query.get("limit") ? Number(query.get("limit")) : undefined,
     offset: query.get("offset") ? Number(query.get("offset")) : undefined,
   };

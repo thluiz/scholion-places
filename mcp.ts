@@ -98,6 +98,13 @@ export const MCP_TOOLS: McpTool[] = [
         radius_km: { type: "number", description: "How far around 'near' to look. Defaults to 5." },
         since: { type: "string", description: "Only places visited on or after this date (YYYY-MM-DD)." },
         until: { type: "string", description: "Only places visited on or before this date (YYYY-MM-DD)." },
+        updated_since: {
+          type: "string",
+          description:
+            "Only places created or changed in the collection on or after this date (YYYY-MM-DD) — a " +
+            "record touched now, not a visit that happened then. Use this for 'what's new since yesterday', " +
+            "not since/until, which answer a different question about when the flowers were seen.",
+        },
         limit: { type: "integer", description: "How many to return. Defaults to 25." },
       },
     },
