@@ -64,7 +64,22 @@ function frontmatter(place: Place): string[] {
   lines.push(`coords: ${yamlNumberList([place.coords.lat, place.coords.lon])}`);
   if (place.address) lines.push(`address: ${yamlString(place.address)}`);
 
+  // Which photograph stands for the place on a listing card. Written down
+  // rather than left to the site to guess: sorting filenames picks the wrong
+  // one the moment there are two from the same day, because "-2.jpg" sorts
+  // before ".jpg". The record knows the order; the rendering carries it.
+  const thumb = firstPhoto(place);
+  if (thumb) lines.push(`thumb: ${yamlString(thumb)}`);
+
   return lines;
+}
+
+/** The earliest photograph on record, in visit order. */
+function firstPhoto(place: Place): string | undefined {
+  for (const entry of sortEntries(place.entries)) {
+    if (entry.photos.length) return entry.photos[0].file;
+  }
+  return undefined;
 }
 
 // ── the body ─────────────────────────────────────────────────────────────────

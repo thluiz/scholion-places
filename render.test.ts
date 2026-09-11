@@ -62,6 +62,7 @@ kind: ["flores"]
 species: ["cardo", "malmequer-bravo", "papoila-das-searas"]
 coords: [40.32611, -7.61389]
 address: "N339, junto ao marco 12"
+thumb: "2026-04-12-papoila-1.jpg"
 ---
 
 Estaciona-se na berma larga a seguir à curva.
@@ -148,6 +149,35 @@ coords: [40, -7]
       coords: { lat: 40, lon: -7 },
     });
     expect(renderPlace(place)).toContain('title: "O \\"Alto\\" da Serra \\\\ norte"');
+  });
+});
+
+describe("thumb", () => {
+  test("is the first photo of the earliest visit, whatever the filenames sort like", () => {
+    // "…-hortensia-2.jpg" sorts before "…-hortensia.jpg", so a site picking by
+    // filename would show the second photograph. The record settles it.
+    const place = parsePlace({
+      title: "x",
+      coords: { lat: 40, lon: -7 },
+      entries: [
+        {
+          id: "e00002",
+          date: "2026-08-31",
+          by: "thiago",
+          photos: [
+            { id: "p00001", file: "2026-08-31-hortensia.jpg" },
+            { id: "p00002", file: "2026-08-31-hortensia-2.jpg" },
+          ],
+        },
+        { id: "e00001", date: "2026-04-12", by: "thiago", photos: [{ id: "p00003", file: "2026-04-12-cardo.jpg" }] },
+      ],
+    });
+    expect(renderPlace(place)).toContain('thumb: "2026-04-12-cardo.jpg"');
+  });
+
+  test("a place with no photographs declares none", () => {
+    const place = parsePlace({ title: "x", coords: { lat: 40, lon: -7 } });
+    expect(renderPlace(place)).not.toContain("thumb:");
   });
 });
 
