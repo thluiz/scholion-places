@@ -248,6 +248,13 @@ describe("attachments", () => {
 });
 
 describe("syncing with a remote", () => {
+  // Each of these spawns a dozen git processes against three repositories on
+  // disk. On a slow filesystem that outruns the default five seconds, and the
+  // failure is ugly: the test times out, afterEach deletes the temporary
+  // directory, and the git operation still in flight fails against a path that
+  // no longer exists.
+  const LENTO = 30_000;
+
   let remote: string;
   let clone: string;
   let pushing: Vault;
@@ -275,7 +282,7 @@ describe("syncing with a remote", () => {
 
     await $`git -C ${clone} pull -q`.quiet();
     expect(await Bun.file(join(clone, "content", "places", "fonte-da-pipa", RECORD_FILE)).exists()).toBe(true);
-  });
+  }, LENTO);
 
   test("a hand edit does not strand the push, and survives it", async () => {
     await pushing.write(place(), { message: "places: novo local" });
@@ -299,7 +306,7 @@ describe("syncing with a remote", () => {
     // ...and the uncommitted edit is still sitting in the working tree.
     expect(await readFile(recordPath, "utf8")).toContain("editado à mão");
     expect((await $`git -C ${root} stash list`.quiet().text()).trim()).toBe("");
-  });
+  }, LENTO);
 
   test("a dirty tree is not rebased at all when the remote has not moved", async () => {
     await pushing.write(place(), { message: "places: novo local" });
@@ -313,7 +320,7 @@ describe("syncing with a remote", () => {
     expect((await $`git -C ${root} stash list`.quiet().text()).trim()).toBe("");
     expect(await readFile(recordPath, "utf8")).toContain("Editado");
     expect(pushing.state.strandedStash).toBeUndefined();
-  });
+  }, LENTO);
 
   test("an edit that collides with the remote is kept in the stash and reported", async () => {
     await pushing.write(place(), { message: "places: novo local" });
@@ -353,7 +360,7 @@ describe("syncing with a remote", () => {
     // And the edit is recoverable, in full.
     const stashed = await $`git -C ${root} stash show -p stash@{0}`.quiet().text();
     expect(stashed).toContain("Editado à mão");
-  });
+  }, LENTO);
 
   test("a commit made elsewhere is rebased under ours, not lost", async () => {
     await writeFile(join(clone, "OUTRO.md"), "vindo de outro sitio\n");
@@ -368,7 +375,7 @@ describe("syncing with a remote", () => {
     expect(log).toContain("outro escritor");
     expect(log).toContain("places: novo local");
     expect(await Bun.file(join(root, "OUTRO.md")).exists()).toBe(true);
-  });
+  }, LENTO);
 });
 
 describe("SerialQueue", () => {
