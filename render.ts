@@ -59,7 +59,11 @@ function frontmatter(place: Place): string[] {
   lines.push("category: place");
   if (place.summary) lines.push(`summary: ${yamlString(place.summary)}`);
   if (place.tags.length) lines.push(`tags: ${yamlList(place.tags)}`);
-  if (place.kind.length) lines.push(`kind: ${yamlList(place.kind)}`);
+  // `kinds`, not `kind`: Hugo reserves `kind` in front matter for the page kind
+  // and deprecated its use as a custom field in v0.144. The record still calls
+  // it `kind` — renaming a field in the rendering costs a re-render, and that is
+  // the whole point of keeping the two apart.
+  if (place.kind.length) lines.push(`kinds: ${yamlList(place.kind)}`);
   if (species.length) lines.push(`species: ${yamlList(species)}`);
   lines.push(`coords: ${yamlNumberList([place.coords.lat, place.coords.lon])}`);
   if (place.address) lines.push(`address: ${yamlString(place.address)}`);
