@@ -25,6 +25,8 @@ const FONTE = {
   summary: "Campo aberto virado a sul.",
   coords: { lat: 40.32611, lon: -7.61389 },
   body: "Estaciona-se na berma larga.",
+  created: "2026-04-12T09:00:00+01:00",
+  updated: "2026-08-31T18:00:00+01:00",
   entries: [
     {
       id: "e00001",
@@ -52,6 +54,8 @@ const AZENHA = {
   tags: ["serra-da-estrela"],
   // Roughly 600 m from Fonte da Pipa.
   coords: { lat: 40.3315, lon: -7.61389 },
+  created: "2026-04-20T09:00:00+01:00",
+  updated: "2026-09-10T08:00:00+01:00",
   entries: [
     {
       id: "e00003",
@@ -69,6 +73,8 @@ const TASCA = {
   title: "Tasca do Manel",
   kind: ["restaurante"],
   coords: { lat: 41.5, lon: -8.4 },
+  created: "2026-05-03T20:00:00+01:00",
+  updated: "2026-05-03T20:00:00+01:00",
   entries: [
     {
       id: "e00004",
@@ -153,6 +159,29 @@ describe("filters", () => {
     expect(index.search({ until: "2026-04-15" }).results.map((h) => h.slug)).toEqual([
       "fonte-da-pipa",
     ]);
+  });
+
+  test("by when the record itself changed, not when the flowers were seen", () => {
+    // FONTE's last visit (2026-08-31) is more recent than AZENHA's (2026-04-20),
+    // but AZENHA's record was the one actually touched later — updated_since
+    // has to follow the record, not the entries.
+    expect(index.search({ updatedSince: "2026-09-01" }).results.map((h) => h.slug)).toEqual([
+      "azenha-velha",
+    ]);
+
+    // Freshest record first, not most recently visited first.
+    expect(index.search({ updatedSince: "2026-08-01" }).results.map((h) => h.slug)).toEqual([
+      "azenha-velha",
+      "fonte-da-pipa",
+    ]);
+
+    expect(index.search({ updatedSince: "2026-09-11" }).total).toBe(0);
+  });
+
+  test("created and updated ride along on every hit", () => {
+    const hit = index.search({ q: "berma" }).results[0];
+    expect(hit.created).toBe("2026-04-12T09:00:00+01:00");
+    expect(hit.updated).toBe("2026-08-31T18:00:00+01:00");
   });
 
   test("filters compose: flowers, in April, near here", () => {

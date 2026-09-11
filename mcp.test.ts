@@ -18,6 +18,7 @@ import { ValidationError } from "./model";
 import { PhotoStore, type EncodeResult, type PhotoEncoder } from "./photos";
 import { matchRoute, type ApiContext } from "./routes";
 import { PlaceIndex } from "./search";
+import { localDate } from "./time";
 import { ConflictError, NotFoundError, Vault } from "./vault";
 
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 0, 0]);
@@ -195,6 +196,20 @@ describe("calling through", () => {
     const august = (await callTool(ctx, admin, "places_search", { month: 8 })) as { total: number };
     expect(april.total).toBe(1);
     expect(august.total).toBe(0);
+  });
+
+  test("updated_since arrives as a real filter, distinct from since/until", async () => {
+    await create();
+    const tomorrow = localDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
+
+    const today = (await callTool(ctx, admin, "places_search", {
+      updated_since: localDate(),
+    })) as { total: number };
+    const notYet = (await callTool(ctx, admin, "places_search", { updated_since: tomorrow })) as {
+      total: number;
+    };
+    expect(today.total).toBe(1);
+    expect(notYet.total).toBe(0);
   });
 
   test("validation is the route's, so a bad argument fails the same way", async () => {

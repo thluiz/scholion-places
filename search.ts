@@ -38,6 +38,8 @@ CREATE TABLE IF NOT EXISTS places (
   last_seen   TEXT,
   entry_count INTEGER NOT NULL DEFAULT 0,
   photo_count INTEGER NOT NULL DEFAULT 0,
+  created     TEXT NOT NULL DEFAULT '',
+  updated     TEXT NOT NULL DEFAULT '',
   mtime_ms    REAL NOT NULL DEFAULT 0
 );
 
@@ -84,6 +86,8 @@ export interface SearchQuery {
   radiusKm?: number;
   since?: string;
   until?: string;
+  /** Only places whose record was created or changed on or after this date. */
+  updatedSince?: string;
   limit?: number;
   offset?: number;
 }
@@ -102,6 +106,8 @@ export interface SearchHit {
   entryCount: number;
   photoCount: number;
   distanceM?: number;
+  created: string;
+  updated: string;
 }
 
 export interface SearchResult {
@@ -131,6 +137,8 @@ interface PlaceRow {
   last_seen: string | null;
   entry_count: number;
   photo_count: number;
+  created: string;
+  updated: string;
   mtime_ms: number;
 }
 
@@ -148,6 +156,8 @@ function toHit(row: PlaceRow): SearchHit {
     lastSeen: row.last_seen ?? undefined,
     entryCount: row.entry_count,
     photoCount: row.photo_count,
+    created: row.created,
+    updated: row.updated,
   };
 }
 
@@ -222,8 +232,8 @@ export class PlaceIndex {
     this.db.run(
       `INSERT INTO places
          (slug, title, kind, tags, species, summary, address, lat, lon,
-          first_seen, last_seen, entry_count, photo_count, mtime_ms)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          first_seen, last_seen, entry_count, photo_count, created, updated, mtime_ms)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         place.slug,
         place.title,
@@ -238,6 +248,8 @@ export class PlaceIndex {
         lastSeen(place) ?? null,
         place.entries.length,
         photoCount,
+        place.created,
+        place.updated,
         mtimeMs,
       ],
     );
@@ -333,6 +345,14 @@ export class PlaceIndex {
       conditions.push("EXISTS (SELECT 1 FROM entries e WHERE e.slug = p.slug AND e.date <= ?)");
       params.push(query.until);
     }
+    // Unlike since/until, this asks about the record itself — created or
+    // touched on or after this date — not about when a visit happened.
+    // Lexical comparison works because `updated` is an ISO timestamp with an
+    // offset, and any such timestamp on a date sorts >= that date's prefix.
+    if (query.updatedSince) {
+      conditions.push("p.updated >= ?");
+      params.push(query.updatedSince);
+    }
 
     const radiusM = (query.radiusKm ?? 5) * 1000;
     if (query.near) {
@@ -354,6 +374,9 @@ export class PlaceIndex {
         .map((hit) => ({ ...hit, distanceM: Math.round(distanceMeters(centre, hit.coords)) }))
         .filter((hit) => (hit.distanceM ?? 0) <= radiusM)
         .sort((a, b) => (a.distanceM ?? 0) - (b.distanceM ?? 0));
+    } else if (query.updatedSince) {
+      // "What's new" is a question about freshness, not about the last visit.
+      hits.sort((a, b) => b.updated.localeCompare(a.updated) || a.title.localeCompare(b.title));
     } else {
       hits.sort((a, b) => (b.lastSeen ?? "").localeCompare(a.lastSeen ?? "") || a.title.localeCompare(b.title));
     }
