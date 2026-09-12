@@ -84,6 +84,11 @@ function ifMatch(headers: Headers): string | undefined {
   return value.replace(/^W\//, "").replace(/^"|"$/g, "");
 }
 
+/** Where the place reads as a note, for a caller that only has the API's word for it. */
+function placeUrl(config: Config, slug: string): string {
+  return `${config.siteBaseUrl}/places/${slug}/`;
+}
+
 function shapePlace(stored: StoredPlace) {
   const { place } = stored;
   return {
@@ -287,7 +292,13 @@ export const ROUTES: Route[] = [
     pattern: /^\/places$/,
     operation: "places.search",
     async handle(ctx, request) {
-      return { body: ctx.index.search(parseSearch(request.query)) };
+      const result = ctx.index.search(parseSearch(request.query));
+      return {
+        body: {
+          ...result,
+          results: result.results.map((hit) => ({ ...hit, url: placeUrl(ctx.config, hit.slug) })),
+        },
+      };
     },
   },
 
