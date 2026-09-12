@@ -67,6 +67,12 @@ thumb: "2026-04-12-papoila-1.jpg"
 
 Estaciona-se na berma larga a seguir à curva.
 
+## 2026-08-31 — Cardo
+
+já seco, mas há muito
+
+![Cardo](2026-08-31-cardo.jpg)
+
 ## 2026-04-12 — Malmequer bravo, Papoila das searas
 
 campo todo vermelho no lado sul
@@ -74,12 +80,6 @@ campo todo vermelho no lado sul
 ![Malmequer bravo, Papoila das searas](2026-04-12-papoila-1.jpg)
 
 ![de perto](2026-04-12-papoila-2.jpg)
-
-## 2026-08-31 — Cardo
-
-já seco, mas há muito
-
-![Cardo](2026-08-31-cardo.jpg)
 `;
 
 describe("renderPlace", () => {
@@ -106,9 +106,9 @@ describe("renderPlace", () => {
     expect(output.indexOf(GENERATED_NOTICE[0])).toBeLessThan(output.indexOf("title:"));
   });
 
-  test("the sections are chronological, whatever order the entries arrived in", () => {
+  test("the sections are most recent first, whatever order the entries arrived in", () => {
     const output = renderPlace(fullPlace());
-    expect(output.indexOf("## 2026-04-12")).toBeLessThan(output.indexOf("## 2026-08-31"));
+    expect(output.indexOf("## 2026-08-31")).toBeLessThan(output.indexOf("## 2026-04-12"));
   });
 });
 
