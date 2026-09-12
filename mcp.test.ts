@@ -166,10 +166,13 @@ describe("calling through", () => {
     await create();
 
     const nearby = (await callTool(ctx, admin, "places_nearby", { lat: 40.32611, lon: -7.61389 })) as {
-      results: { slug: string; distanceM: number }[];
+      results: { slug: string; distanceM: number; url: string }[];
     };
     expect(nearby.results[0].slug).toBe("fonte-da-pipa");
     expect(nearby.results[0].distanceM).toBe(0);
+    // The URL is what lets whoever is on the other end of the tool call point
+    // back at the note, not just name it.
+    expect(nearby.results[0].url).toBe(`${ctx.config.siteBaseUrl}/places/fonte-da-pipa/`);
 
     const added = (await callTool(ctx, admin, "place_add_entry", {
       slug: "fonte-da-pipa",

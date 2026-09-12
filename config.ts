@@ -8,6 +8,9 @@ export interface Config {
   port: number;
   host: string;
 
+  /** Where the vault publishes. A search hit's url is built from this, never guessed. */
+  siteBaseUrl: string;
+
   vaultDir: string;
   vaultSection: string;
   gitAuthorName: string;
@@ -85,6 +88,8 @@ export function loadConfig(): Config {
   return {
     port: num("PORT", 8010),
     host: process.env.HOST || "127.0.0.1",
+
+    siteBaseUrl: (process.env.SITE_BASE_URL || "https://scholion.thluiz.com").replace(/\/+$/, ""),
 
     vaultDir,
     vaultSection: process.env.VAULT_SECTION || "content/places",
