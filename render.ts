@@ -131,7 +131,10 @@ export function renderPlace(place: Place): string {
 
   if (place.body) lines.push(place.body.trim(), "");
 
-  const entries = sortEntries(place.entries);
+  // Most recent visit first: what a reader opening the page wants is what is
+  // there now, not the earliest record. The stored order stays chronological
+  // (sortEntries) — this reverses only the copy that goes into the page.
+  const entries = sortEntries(place.entries).reverse();
   for (const entry of entries) lines.push(...entryLines(entry));
 
   // Collapse runs of blank lines, then end with exactly one newline. Without
