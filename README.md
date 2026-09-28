@@ -185,7 +185,8 @@ src/
   server.ts      wires everything together; the only file that starts anything
   domain/        what a place is, and how it becomes Markdown. No I/O.
   storage/       the vault (JSON + git), the search index, the photo store
-  http/          the routes, and the plumbing between them and Bun.serve
+  http/          handler.ts (one request, end to end), routes.ts (the table),
+                 routes/ (one file per resource), api.ts (what a route is given)
   mcp/           the same routes, spoken as MCP
   security/      who may do what, and how often
   services/      things asked of other services (describing a photograph)
