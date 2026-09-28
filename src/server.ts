@@ -22,8 +22,8 @@ import {
   assertOperation,
   unknownOperations,
   type Principal,
-} from "./acl";
-import { RateLimitError, WriteBudget } from "./budget";
+} from "./security/acl";
+import { RateLimitError, WriteBudget } from "./security/budget";
 import { loadConfig } from "./config";
 import { Logger, type AuditOutcome } from "./logger";
 import {
@@ -33,12 +33,12 @@ import {
   handleMcpGet,
   handleMcpOptions,
   handleMcpPost,
-} from "./mcp";
-import { ValidationError } from "./model";
-import { FfmpegEncoder, PhotoNotFoundError, PhotoStore } from "./photos";
-import { MethodNotAllowedError, matchRoute, type ApiContext, type ApiResult } from "./routes";
-import { PlaceIndex, syncIndex } from "./search";
-import { ConflictError, NotFoundError, Vault, describe } from "./vault";
+} from "./mcp/mcp";
+import { ValidationError } from "./domain/model";
+import { FfmpegEncoder, PhotoNotFoundError, PhotoStore } from "./storage/photos";
+import { MethodNotAllowedError, matchRoute, type ApiContext, type ApiResult } from "./http/routes";
+import { PlaceIndex, syncIndex } from "./storage/search";
+import { ConflictError, NotFoundError, Vault, describe } from "./storage/vault";
 
 const SERVICE = "scholion-places";
 const VERSION = "1.0.0";

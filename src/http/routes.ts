@@ -17,10 +17,10 @@
 
 import { join } from "node:path";
 
-import type { Operation, Principal } from "./acl";
-import type { Config } from "./config";
-import { describeImage } from "./describe";
-import { NEIGHBOUR_RADIUS_M, distanceMeters, slugify } from "./geo";
+import type { Operation, Principal } from "../security/acl";
+import type { Config } from "../config";
+import { describeImage } from "../services/describe";
+import { NEIGHBOUR_RADIUS_M, distanceMeters, slugify } from "../domain/geo";
 import {
   ValidationError,
   assertCoords,
@@ -38,11 +38,11 @@ import {
   speciesOf,
   type Entry,
   type Place,
-} from "./model";
-import { photoFilename, type PhotoStore } from "./photos";
-import type { PlaceIndex, SearchQuery } from "./search";
-import { localDate, localTimestamp } from "./time";
-import { ConflictError, NotFoundError, type StoredPlace, type Vault } from "./vault";
+} from "../domain/model";
+import { photoFilename, type PhotoStore } from "../storage/photos";
+import type { PlaceIndex, SearchQuery } from "../storage/search";
+import { localDate, localTimestamp } from "../domain/time";
+import { ConflictError, NotFoundError, type StoredPlace, type Vault } from "../storage/vault";
 
 export interface ApiContext {
   config: Config;

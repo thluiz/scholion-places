@@ -19,8 +19,8 @@
 
 import { Database } from "bun:sqlite";
 
-import { boundingBox, distanceMeters, type Coords } from "./geo";
-import { firstSeen, lastSeen, speciesOf } from "./model";
+import { boundingBox, distanceMeters, type Coords } from "../domain/geo";
+import { firstSeen, lastSeen, speciesOf } from "../domain/model";
 import type { StoredPlace } from "./vault";
 
 const SCHEMA = `

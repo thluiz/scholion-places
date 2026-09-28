@@ -7,7 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
-import { parsePlace, type Place } from "./model";
+import { parsePlace, type Place } from "../domain/model";
 import { PlaceIndex, syncIndex, toMatchExpression } from "./search";
 import type { StoredPlace } from "./vault";
 

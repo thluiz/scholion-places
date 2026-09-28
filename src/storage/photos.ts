@@ -19,7 +19,7 @@ import { spawn } from "bun";
 import { mkdir, readdir, stat, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
-import { ValidationError } from "./model";
+import { ValidationError } from "../domain/model";
 
 export class PhotoNotFoundError extends Error {
   readonly status = 404;

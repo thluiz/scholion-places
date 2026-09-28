@@ -4,7 +4,7 @@
   "description": "Places, sightings and photos, stored as JSON and published as Markdown into a Hugo content repository.",
   "type": "module",
   "scripts": {
-    "start": "bun run server.ts",
+    "start": "bun run src/server.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit -p ."
   },

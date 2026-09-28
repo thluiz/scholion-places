@@ -10,7 +10,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { parsePlace, serialisePlace, type Place } from "./model";
+import { parsePlace, serialisePlace, type Place } from "../domain/model";
 import { ConflictError, NotFoundError, RECORD_FILE, RENDERED_FILE, SerialQueue, Vault } from "./vault";
 
 let root: string;

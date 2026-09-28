@@ -178,18 +178,38 @@ Commit and response are synchronous; the push happens in the background with a
 retry. Once the commit exists the record is safe, and a slow network should not
 make saving a flower feel slow.
 
+## Layout
+
+```
+src/
+  server.ts      wires everything together; the only file that starts anything
+  domain/        what a place is, and how it becomes Markdown. No I/O.
+  storage/       the vault (JSON + git), the search index, the photo store
+  http/          the routes, and the plumbing between them and Bun.serve
+  mcp/           the same routes, spoken as MCP
+  security/      who may do what, and how often
+  services/      things asked of other services (describing a photograph)
+deploy/          the systemd unit and the nginx route generator
+```
+
+Dependencies point inwards: `domain/` imports nothing else from `src/`, and
+`storage/` never imports `http/`. Tests sit next to the module they test.
+
 ## Running it
 
 ```sh
 cp .env.example .env          # then fill in VAULT_DIR and chmod 600
 cp acl.example.json acl.json  # then generate real keys and chmod 600
 git clone --filter=blob:none <content-repo> vault
+bun install                   # only the type checker; nothing at runtime
 bun test
-bun run server.ts
+bun run typecheck
+bun start
 ```
 
 Requires Bun (for `Bun.YAML` and `bun:sqlite` with FTS5) and `ffmpeg` on the
-path. No other dependencies.
+path. No runtime dependencies. Bun strips the types without checking them, so
+`bun run typecheck` is what keeps them honest.
 
 ## Pointing a bot at it
 

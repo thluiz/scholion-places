@@ -15,8 +15,8 @@
 // principal lacks is never listed. Telling a model not to use a tool it can see
 // is a suggestion; not showing it is a boundary.
 
-import { assertOperation, type Operation, type Principal } from "./acl";
-import { matchRoute, type ApiContext } from "./routes";
+import { assertOperation, type Operation, type Principal } from "../security/acl";
+import { matchRoute, type ApiContext } from "../http/routes";
 
 export const PROTOCOL_VERSION = "2024-11-05";
 export const SERVER_NAME = "scholion-places";

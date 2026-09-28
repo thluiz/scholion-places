@@ -11,15 +11,15 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { Acl, OPERATIONS, type Principal } from "./acl";
-import { loadConfig, type Config } from "./config";
+import { Acl, OPERATIONS, type Principal } from "../security/acl";
+import { loadConfig, type Config } from "../config";
 import { MCP_TOOLS, callTool, toolsFor } from "./mcp";
-import { ValidationError } from "./model";
-import { PhotoStore, type EncodeResult, type PhotoEncoder } from "./photos";
-import { matchRoute, type ApiContext } from "./routes";
-import { PlaceIndex } from "./search";
-import { localDate } from "./time";
-import { ConflictError, NotFoundError, Vault } from "./vault";
+import { ValidationError } from "../domain/model";
+import { PhotoStore, type EncodeResult, type PhotoEncoder } from "../storage/photos";
+import { matchRoute, type ApiContext } from "../http/routes";
+import { PlaceIndex } from "../storage/search";
+import { localDate } from "../domain/time";
+import { ConflictError, NotFoundError, Vault } from "../storage/vault";
 
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 0, 0]);
 

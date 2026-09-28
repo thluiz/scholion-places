@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=hermes
 WorkingDirectory=/home/hermes/services/scholion-places
-ExecStart=/home/hermes/.bun/bin/bun run /home/hermes/services/scholion-places/server.ts
+ExecStart=/home/hermes/.bun/bin/bun run /home/hermes/services/scholion-places/src/server.ts
 
 # Restart=always, not on-failure: a SIGTERM combined with on-failure leaves the
 # unit stopped, which on this host has meant a service quietly gone after a

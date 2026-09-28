@@ -10,7 +10,7 @@ import { mkdtemp, readdir, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { ValidationError } from "./model";
+import { ValidationError } from "../domain/model";
 import {
   PhotoNotFoundError,
   PhotoStore,

@@ -24,8 +24,8 @@ import { $ } from "bun";
 import { mkdir, readdir, readFile, rm, stat, unlink, rename as renamePath } from "node:fs/promises";
 import { join } from "node:path";
 
-import { parsePlace, serialisePlace, assertSlug, type Place } from "./model";
-import { renderPlace } from "./render";
+import { parsePlace, serialisePlace, assertSlug, type Place } from "../domain/model";
+import { renderPlace } from "../domain/render";
 
 export const RECORD_FILE = "place.json";
 export const RENDERED_FILE = "index.md";
