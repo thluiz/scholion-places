@@ -319,9 +319,10 @@ export const ROUTES: Route[] = [
           .nearby(coords, radius / 1000)
           .results.filter((hit) => distanceMeters(coords, hit.coords) <= radius);
 
-        if (near.length) {
+        const closest = near[0];
+        if (closest) {
           throw new ConflictError(
-            `there is already a place ${near[0].distanceM} m away: ${near[0].slug} (${near[0].title}). ` +
+            `there is already a place ${closest.distanceM} m away: ${closest.slug} (${closest.title}). ` +
               `Add an entry to it, or pass force: true if this really is a different place.`,
           );
         }

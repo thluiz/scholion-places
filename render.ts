@@ -81,7 +81,8 @@ function frontmatter(place: Place): string[] {
 /** The earliest photograph on record, in visit order. */
 function firstPhoto(place: Place): string | undefined {
   for (const entry of sortEntries(place.entries)) {
-    if (entry.photos.length) return entry.photos[0].file;
+    const photo = entry.photos[0];
+    if (photo) return photo.file;
   }
   return undefined;
 }

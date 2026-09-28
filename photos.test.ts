@@ -86,7 +86,7 @@ describe("staging", () => {
   test("the encoder is what produces the stored file", async () => {
     const staged = await store.stage(PNG);
     expect(encoder.calls).toHaveLength(1);
-    expect(encoder.calls[0].output).toBe(staged.path);
+    expect(encoder.calls[0]!.output).toBe(staged.path);
   });
 
   test("refuses an empty upload", async () => {

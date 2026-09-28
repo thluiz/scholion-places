@@ -55,7 +55,7 @@ async function call(
     query: url.searchParams,
     headers: new Headers(options.headers ?? {}),
     body: options.body ?? {},
-    raw: new Request(url, { method }),
+    raw: new Request(url.href, { method }),
   });
   return { ...result, status: result.status ?? 200 };
 }
@@ -332,11 +332,11 @@ describe("photos", () => {
       body: { caption: "de perto" },
     });
     const withCaption = await ctx.vault.read("fonte-da-pipa");
-    expect(withCaption.place.entries[0].photos[0].caption).toBe("de perto");
+    expect(withCaption.place.entries[0]!.photos[0]!.caption).toBe("de perto");
 
     await call("DELETE", `/places/fonte-da-pipa/entries/${entryId}/photos/${photo.id}`);
     const after = await ctx.vault.read("fonte-da-pipa");
-    expect(after.place.entries[0].photos).toEqual([]);
+    expect(after.place.entries[0]!.photos).toEqual([]);
     expect(await Bun.file(join(ctx.vault.bundleDir("fonte-da-pipa"), photo.file)).exists()).toBe(false);
   });
 

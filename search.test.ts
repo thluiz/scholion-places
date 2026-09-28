@@ -179,7 +179,7 @@ describe("filters", () => {
   });
 
   test("created and updated ride along on every hit", () => {
-    const hit = index.search({ q: "berma" }).results[0];
+    const hit = index.search({ q: "berma" }).results[0]!;
     expect(hit.created).toBe("2026-04-12T09:00:00+01:00");
     expect(hit.updated).toBe("2026-08-31T18:00:00+01:00");
   });
@@ -199,9 +199,9 @@ describe("geography", () => {
   test("nearby is ordered by distance and carries it in the answer", () => {
     const result = index.nearby({ lat: 40.32611, lon: -7.61389 }, 1);
     expect(result.results.map((h) => h.slug)).toEqual(["fonte-da-pipa", "azenha-velha"]);
-    expect(result.results[0].distanceM).toBe(0);
-    expect(result.results[1].distanceM).toBeGreaterThan(500);
-    expect(result.results[1].distanceM).toBeLessThan(700);
+    expect(result.results[0]!.distanceM).toBe(0);
+    expect(result.results[1]!.distanceM).toBeGreaterThan(500);
+    expect(result.results[1]!.distanceM).toBeLessThan(700);
   });
 
   test("the radius actually excludes — a box alone would not", () => {

@@ -66,7 +66,7 @@ describe("the request shape", () => {
     respondWith(() => Response.json({ choices: [{ message: { content: "duas papoilas" } }] }));
     await describeImage(BYTES, options());
 
-    const parts = calls[0].body.messages[0].content;
+    const parts = calls[0]!.body.messages[0].content;
     expect(parts[1].type).toBe("image");
     expect(parts[1].mediaType).toBe("image/jpeg");
     expect(typeof parts[1].data).toBe("string");
@@ -77,7 +77,7 @@ describe("the request shape", () => {
     respondWith(() => Response.json({ choices: [{ message: { content: "x" } }] }));
     await describeImage(BYTES, options());
 
-    const encoded = calls[0].body.messages[0].content[1].data;
+    const encoded = calls[0]!.body.messages[0].content[1].data;
     expect(Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0))).toEqual(BYTES);
   });
 

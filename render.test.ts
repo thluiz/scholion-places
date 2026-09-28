@@ -103,7 +103,7 @@ describe("renderPlace", () => {
     const output = renderPlace(fullPlace());
     for (const line of GENERATED_NOTICE) expect(output).toContain(line);
     // Inside the frontmatter, so Hugo parses it as a YAML comment and drops it.
-    expect(output.indexOf(GENERATED_NOTICE[0])).toBeLessThan(output.indexOf("title:"));
+    expect(output.indexOf(GENERATED_NOTICE[0]!)).toBeLessThan(output.indexOf("title:"));
   });
 
   test("the sections are most recent first, whatever order the entries arrived in", () => {

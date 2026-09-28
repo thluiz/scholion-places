@@ -325,7 +325,7 @@ export async function callTool(
     query: url.searchParams,
     headers: new Headers(),
     body: body ?? {},
-    raw: new Request(url, { method }),
+    raw: new Request(url.href, { method }),
   });
 
   return result.body;
